@@ -4,100 +4,125 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2FA Auto Generator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsOTP/2.0.1/jsOTP.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8f9fa; display: flex; justify-content: center; padding-top: 50px; }
-        .container { background: #ffffff; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding-top: 50px; }
+        .container { background: #fff; padding: 25px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); width: 90%; max-width: 400px; text-align: center; }
         
-        /* মুছুন বাটন সবার উপরে */
-        .clear-btn { background-color: #ff4d4d; color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px; margin-bottom: 20px; transition: 0.3s; }
-        .clear-btn:hover { background-color: #e60000; }
-
-        /* ইনপুট বক্স */
-        .input-box { width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; font-size: 15px; box-sizing: border-box; outline: none; transition: 0.3s; margin-bottom: 20px; text-align: center; }
+        .clear-btn { background-color: #ff4757; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 20px; font-size: 16px; }
+        
+        .input-box { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 10px; font-size: 14px; box-sizing: border-box; outline: none; text-align: center; margin-bottom: 20px; }
         .input-box:focus { border-color: #007bff; }
 
-        /* রেজাল্ট বক্স যেখানে কোড দেখাবে */
-        .result-box { display: none; background: #f1f3f5; border-radius: 12px; padding: 20px; align-items: center; justify-content: space-between; border: 1px dashed #007bff; margin-top: 10px; }
-        .result-box.active { display: flex; }
-        
-        #otpCode { font-size: 35px; font-weight: 800; color: #333; letter-spacing: 5px; cursor: pointer; }
-        
-        .copy-icon-btn { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-size: 14px; }
-        .copy-icon-btn:hover { background: #0056b3; }
+        .result-area { display: none; background: #f8f9fa; border: 2px solid #007bff; border-radius: 12px; padding: 20px; align-items: center; justify-content: space-between; margin-top: 10px; flex-direction: column; gap: 10px; }
+        .result-area.active { display: flex; }
 
-        .status-msg { height: 25px; margin-top: 15px; font-size: 14px; font-weight: bold; }
+        #otpCode { font-size: 40px; font-weight: bold; color: #222; letter-spacing: 3px; }
+        
+        .copy-btn { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+
+        .status { height: 20px; margin-top: 15px; font-size: 14px; font-weight: bold; color: #28a745; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <button class="clear-btn" onclick="clearAll()">🗑️ মুছুন</button>
+    <button class="clear-btn" onclick="reset()">🗑️ মুছুন</button>
 
-    <input type="text" id="secretInput" class="input-box" placeholder="আপনার 2FA Secret Key এখানে দিন" oninput="process2FA()">
+    <input type="text" id="secretInput" class="input-box" placeholder="Secret Key এখানে পেস্ট করুন" oninput="generateOTP()">
 
-    <div id="resultArea" class="result-box">
-        <div id="otpCode" onclick="copyToClipboard()" title="কপি করতে ক্লিক করুন">000000</div>
-        <button class="copy-icon-btn" onclick="copyToClipboard()">Copy</button>
+    <div id="resultArea" class="result-area">
+        <div id="otpCode">000000</div>
+        <button class="copy-btn" onclick="copyCode()">📋 কপি করুন</button>
     </div>
 
-    <p id="message" class="status-msg"></p>
+    <p id="status" class="status"></p>
 </div>
 
 <script>
-    function process2FA() {
-        let secret = document.getElementById('secretInput').value.trim();
-        // স্পেস রিমুভ করা (আপনার স্ক্রিনশটের সমস্যার সমাধান)
-        secret = secret.replace(/\s+/g, '');
-        
-        const resultArea = document.getElementById('resultArea');
-        const otpDisplay = document.getElementById('otpCode');
-        const message = document.getElementById('message');
+    // Base32 decoding function for TOTP
+    function base32tohex(base32) {
+        let base32chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        let bits = "";
+        let hex = "";
+        base32 = base32.replace(/\s/g, "").toUpperCase();
+        for (let i = 0; i < base32.length; i++) {
+            let val = base32chars.indexOf(base32.charAt(i));
+            if (val === -1) continue;
+            bits += val.toString(2).padStart(5, '0');
+        }
+        for (let i = 0; i + 4 <= bits.length; i += 4) {
+            hex += parseInt(bits.substr(i, 4), 2).toString(16);
+        }
+        return hex;
+    }
 
-        if (secret.length >= 10) {
-            try {
-                var totp = new jsOTP.totp();
-                var code = totp.getOtp(secret);
-                
-                if (code && code !== "NaN") {
-                    otpDisplay.innerText = code;
-                    resultArea.classList.add('active');
-                    
-                    // অটোমেটিক কপি করা
-                    navigator.clipboard.writeText(code).then(() => {
-                        message.style.color = "#28a745";
-                        message.innerText = "✅ কোড তৈরি ও কপি হয়েছে!";
-                    });
-                } else {
-                    throw "Invalid";
-                }
-            } catch (e) {
-                message.style.color = "#dc3545";
-                message.innerText = "❌ ভুল সিক্রেট কি!";
-                resultArea.classList.remove('active');
-            }
-        } else {
-            resultArea.classList.remove('active');
-            message.innerText = "";
+    async function generateOTP() {
+        let secret = document.getElementById('secretInput').value.trim();
+        if (secret.length < 8) {
+            document.getElementById('resultArea').classList.remove('active');
+            return;
+        }
+
+        try {
+            let key = base32tohex(secret);
+            let epoch = Math.round(new Date().getTime() / 1000.0);
+            let time = leftpad(Math.floor(epoch / 30).toString(16), 16, '0');
+
+            // This is a simplified TOTP logic using Crypto API
+            let hmac = await window.crypto.subtle.importKey(
+                "raw", 
+                new Uint8Array(key.match(/.{1,2}/g).map(byte => parseInt(byte, 16))),
+                { name: "HMAC", hash: { name: "SHA-1" } },
+                false,
+                ["sign"]
+            );
+            
+            let signature = await window.crypto.subtle.sign(
+                "HMAC",
+                hmac,
+                new Uint8Array(time.match(/.{1,2}/g).map(byte => parseInt(byte, 16)))
+            );
+
+            let hash = new Uint8Array(signature);
+            let offset = hash[hash.length - 1] & 0xf;
+            let otp = (
+                ((hash[offset] & 0x7f) << 24) |
+                ((hash[offset + 1] & 0xff) << 16) |
+                ((hash[offset + 2] & 0xff) << 8) |
+                (hash[offset + 3] & 0xff)
+            ) % 1000000;
+
+            let finalCode = otp.toString().padStart(6, '0');
+            
+            document.getElementById('otpCode').innerText = finalCode;
+            document.getElementById('resultArea').classList.add('active');
+            
+            // অটো কপি
+            navigator.clipboard.writeText(finalCode);
+            document.getElementById('status').innerText = "✅ অটো-কপি হয়েছে!";
+        } catch (e) {
+            document.getElementById('status').innerText = "";
         }
     }
 
-    // ম্যানুয়াল কপি ফাংশন
-    function copyToClipboard() {
-        const code = document.getElementById('otpCode').innerText;
-        navigator.clipboard.writeText(code);
-        const message = document.getElementById('message');
-        message.style.color = "#007bff";
-        message.innerText = "📋 ক্লিপবোর্ডে কপি করা হয়েছে!";
-        setTimeout(() => { message.innerText = ""; }, 2000);
+    function leftpad(str, len, pad) {
+        if (len + 1 >= str.length) {
+            str = Array(len + 1 - str.length).join(pad) + str;
+        }
+        return str;
     }
 
-    // সব মুছে ফেলার ফাংশন
-    function clearAll() {
+    function copyCode() {
+        const code = document.getElementById('otpCode').innerText;
+        navigator.clipboard.writeText(code);
+        document.getElementById('status').innerText = "✅ কপি করা হয়েছে!";
+        setTimeout(() => { document.getElementById('status').innerText = "✅ অটো-কপি হয়েছে!"; }, 2000);
+    }
+
+    function reset() {
         document.getElementById('secretInput').value = "";
         document.getElementById('resultArea').classList.remove('active');
-        document.getElementById('message').innerText = "মুছে ফেলা হয়েছে";
-        setTimeout(() => { document.getElementById('message').innerText = ""; }, 2000);
+        document.getElementById('status').innerText = "";
     }
 </script>
 

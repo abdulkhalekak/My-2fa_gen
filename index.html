@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA Code Manager</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; margin-top: 50px; background-color: #f0f2f5; }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 380px; text-align: center; }
+        
+        /* মুছুন বাটন স্টাইল */
+        .clear-btn { background-color: #ff4d4d; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; font-weight: bold; width: 100%; }
+        .clear-btn:hover { background-color: #cc0000; }
+
+        /* ইনপুট গ্রুপ স্টাইল (ডান দিকে কপির জন্য) */
+        .input-group { position: relative; display: flex; align-items: center; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px 45px 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
+        input:focus { border-color: #007bff; }
+        
+        /* ইনপুটের ভেতরের ডানদিকের কপি আইকন */
+        .inner-copy-btn { position: absolute; right: 10px; background: none; border: none; cursor: pointer; font-size: 18px; color: #007bff; padding: 5px; }
+        .inner-copy-btn:hover { color: #0056b3; }
+
+        /* নিচের বড় কপি বাটন */
+        .main-copy-btn { width: 100%; background-color: #28a745; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .main-copy-btn:hover { background-color: #218838; }
+
+        .status { margin-top: 15px; font-size: 14px; font-weight: 500; height: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="clear-btn" onclick="clearText()">🗑️ মুছুন</button>
+
+    <div class="input-group">
+        <input type="text" id="twoFaInput" placeholder="আপনার কোড এখানে লিখুন...">
+        
+        <button class="inner-copy-btn" onclick="copyToClipboard()" title="কপি করুন">
+            📋
+        </button>
+    </div>
+
+    <button class="main-copy-btn" onclick="copyToClipboard()">কপি করুন</button>
+
+    <p id="statusMsg" class="status"></p>
+</div>
+
+<script>
+    function copyToClipboard() {
+        const copyText = document.getElementById("twoFaInput");
+        const statusMsg = document.getElementById("statusMsg");
+
+        if (copyText.value.trim() === "") {
+            statusMsg.style.color = "#dc3545";
+            statusMsg.innerText = "Error: কপি করার মতো কিছু নেই!";
+            return;
+        }
+
+        // কপি করার আধুনিক নিয়ম
+        navigator.clipboard.writeText(copyText.value).then(() => {
+            statusMsg.style.color = "#28a745";
+            statusMsg.innerText = "✅ কোডটি সফলভাবে কপি হয়েছে!";
+            
+            // ৩ সেকেন্ড পর মেসেজ চলে যাবে
+            setTimeout(() => { statusMsg.innerText = ""; }, 3000);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+        });
+
+        // ভিজ্যুয়াল সিলেকশন (ঐচ্ছিক)
+        copyText.select();
+    }
+
+    function clearText() {
+        const inputField = document.getElementById("twoFaInput");
+        const statusMsg = document.getElementById("statusMsg");
+        
+        inputField.value = "";
+        statusMsg.innerText = "";
+        inputField.focus();
+    }
+</script>
+
+</body>
+</html>

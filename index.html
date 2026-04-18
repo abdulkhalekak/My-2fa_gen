@@ -3,82 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2FA Code Manager</title>
+    <title>Auto 2FA Gen & Copy</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsOTP/2.0.1/jsOTP.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; margin-top: 50px; background-color: #f0f2f5; }
-        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 380px; text-align: center; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; margin-top: 50px; background-color: #f4f7f6; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
         
-        /* মুছুন বাটন স্টাইল */
-        .clear-btn { background-color: #ff4d4d; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; font-weight: bold; width: 100%; }
-        .clear-btn:hover { background-color: #cc0000; }
-
-        /* ইনপুট গ্রুপ স্টাইল (ডান দিকে কপির জন্য) */
-        .input-group { position: relative; display: flex; align-items: center; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px 45px 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: #007bff; }
+        .clear-btn { background-color: #ff4757; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 20px; }
         
-        /* ইনপুটের ভেতরের ডানদিকের কপি আইকন */
-        .inner-copy-btn { position: absolute; right: 10px; background: none; border: none; cursor: pointer; font-size: 18px; color: #007bff; padding: 5px; }
-        .inner-copy-btn:hover { color: #0056b3; }
-
-        /* নিচের বড় কপি বাটন */
-        .main-copy-btn { width: 100%; background-color: #28a745; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .main-copy-btn:hover { background-color: #218838; }
-
-        .status { margin-top: 15px; font-size: 14px; font-weight: 500; height: 20px; }
+        .input-box { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 15px; outline: none; }
+        
+        .result-container { position: relative; display: flex; align-items: center; background: #e9ecef; border-radius: 8px; padding: 10px; visibility: hidden; }
+        .result-container.show { visibility: visible; }
+        
+        #resultCode { font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #2f3542; flex-grow: 1; }
+        
+        .copy-icon { cursor: pointer; font-size: 20px; color: #1e90ff; padding-left: 10px; }
+        
+        .status { font-size: 12px; color: #2ed573; margin-top: 8px; font-weight: bold; height: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <button class="clear-btn" onclick="clearText()">🗑️ মুছুন</button>
+    <button class="clear-btn" onclick="resetAll()">🗑️ মুছুন</button>
 
-    <div class="input-group">
-        <input type="text" id="twoFaInput" placeholder="আপনার কোড এখানে লিখুন...">
-        
-        <button class="inner-copy-btn" onclick="copyToClipboard()" title="কপি করুন">
-            📋
-        </button>
+    <input type="text" id="secretInput" class="input-box" placeholder="এখানে Secret Key পেস্ট করুন..." oninput="generateAndCopy()">
+
+    <div id="resWrap" class="result-container">
+        <span id="resultCode">------</span>
+        <span class="copy-icon" onclick="manualCopy()" title="ম্যানুয়াল কপি">📋</span>
     </div>
 
-    <button class="main-copy-btn" onclick="copyToClipboard()">কপি করুন</button>
-
-    <p id="statusMsg" class="status"></p>
+    <p id="status" class="status"></p>
 </div>
 
 <script>
-    function copyToClipboard() {
-        const copyText = document.getElementById("twoFaInput");
-        const statusMsg = document.getElementById("statusMsg");
+    function generateAndCopy() {
+        const secret = document.getElementById('secretInput').value.trim().replace(/\s/g, "");
+        const resWrap = document.getElementById('resWrap');
+        const resultCode = document.getElementById('resultCode');
+        const status = document.getElementById('status');
 
-        if (copyText.value.trim() === "") {
-            statusMsg.style.color = "#dc3545";
-            statusMsg.innerText = "Error: কপি করার মতো কিছু নেই!";
-            return;
+        if (secret.length >= 16) { // সাধারণত সিক্রেট কি ১৬ অক্ষরের বেশি হয়
+            try {
+                // TOTP জেনারেট করা
+                var totp = new jsOTP.totp();
+                var code = totp.getOtp(secret);
+                
+                resultCode.innerText = code;
+                resWrap.classList.add('show');
+
+                // অটোমেটিক কপি করা
+                navigator.clipboard.writeText(code).then(() => {
+                    status.innerText = "✅ কোড তৈরি এবং অটো-কপি হয়েছে!";
+                    setTimeout(() => { status.innerText = ""; }, 2000);
+                });
+            } catch (err) {
+                status.innerText = "❌ ভুল সিক্রেট কি!";
+                resWrap.classList.remove('show');
+            }
+        } else {
+            resWrap.classList.remove('show');
+            status.innerText = "";
         }
-
-        // কপি করার আধুনিক নিয়ম
-        navigator.clipboard.writeText(copyText.value).then(() => {
-            statusMsg.style.color = "#28a745";
-            statusMsg.innerText = "✅ কোডটি সফলভাবে কপি হয়েছে!";
-            
-            // ৩ সেকেন্ড পর মেসেজ চলে যাবে
-            setTimeout(() => { statusMsg.innerText = ""; }, 3000);
-        }).catch(err => {
-            console.error('Failed to copy: ', err);
-        });
-
-        // ভিজ্যুয়াল সিলেকশন (ঐচ্ছিক)
-        copyText.select();
     }
 
-    function clearText() {
-        const inputField = document.getElementById("twoFaInput");
-        const statusMsg = document.getElementById("statusMsg");
-        
-        inputField.value = "";
-        statusMsg.innerText = "";
-        inputField.focus();
+    function manualCopy() {
+        const code = document.getElementById('resultCode').innerText;
+        navigator.clipboard.writeText(code);
+        document.getElementById('status').innerText = "✅ কপি হয়েছে!";
+        setTimeout(() => { document.getElementById('status').innerText = ""; }, 2000);
+    }
+
+    function resetAll() {
+        document.getElementById('secretInput').value = "";
+        document.getElementById('resultCode').innerText = "------";
+        document.getElementById('resWrap').classList.remove('show');
+        document.getElementById('status').innerText = "সব মুছে ফেলা হয়েছে";
+        setTimeout(() => { document.getElementById('status').innerText = ""; }, 2000);
     }
 </script>
 
